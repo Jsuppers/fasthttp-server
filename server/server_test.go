@@ -5,18 +5,26 @@ import (
 	"testing"
 	"time"
 
+	"fasthttp-server/mocks"
+
+	"github.com/golang/mock/gomock"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
+//go:generate mockgen -package=mocks -destination=./../mocks/pipe_mock.go fasthttp-server/pipe Simple
+
 func TestStart(t *testing.T) {
 	StatusOK := 200
 	ln := fasthttputil.NewInmemoryListener()
+	mockCtrl := gomock.NewController(t)
+	mockPipe := mocks.NewMockSimple(mockCtrl)
+	mockPipe.EXPECT().Write(gomock.Any()).Times(1)
 
 	// Start the server with an in memory listener
 	serverCh := make(chan struct{})
 	go func() {
-		if err := Start(ln); err != nil {
+		if err := Start(ln, mockPipe); err != nil {
 			t.Errorf("unexpected error: %s", err)
 		}
 		close(serverCh)
@@ -64,4 +72,6 @@ func TestStart(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timeout")
 	}
+
+	mockCtrl.Finish()
 }
