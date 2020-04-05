@@ -53,7 +53,11 @@ func (s *server) Start() error {
 
 func (s *server) requestHandler(ctx *fasthttp.RequestCtx) {
 	var message Request
-	json.Unmarshal(ctx.PostBody(), &message)
+	err := json.Unmarshal(ctx.PostBody(), &message)
+	if err != nil {
+		fmt.Println("Error parsing request", err)
+		return
+	}
 
 	_, exists := s.dataPipes[message.ClientID]
 	if !exists {
@@ -65,26 +69,30 @@ func (s *server) requestHandler(ctx *fasthttp.RequestCtx) {
 		}()
 	}
 
-	_, err := s.dataPipes[message.ClientID].Write(ctx.PostBody())
+	_, err = s.dataPipes[message.ClientID].Write(ctx.PostBody())
 	if err != nil {
 		log.Println("Error when reading request: ", err)
 	}
 }
 
 func (s *server) Close() {
-
 	fmt.Println("Shutting down the server")
-	s.httpServer.Shutdown()
+	err := s.httpServer.Shutdown()
+	if err != nil {
+		log.Println("Error when shutting down the server: ", err)
+	}
 
 	fmt.Println("Closing data pipes")
-	for _, pipe := range s.dataPipes {
-		pipe.Close()
+	for _, dp := range s.dataPipes {
+		dp.Close()
 	}
 
 	fmt.Println("Closing s3 streamers")
 	for _, stream := range s.streamers {
 		stream.Close()
 	}
+
+	fmt.Println("Closed all streamers")
 	s.waitGroup.Done()
 }
 

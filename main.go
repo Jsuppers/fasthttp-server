@@ -11,11 +11,10 @@ import (
 
 const (
 	network = "tcp"
-	address = "127.0.0.1:8080"
+	address = ":8080"
 )
 
 func main() {
-
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt)
 	listener, err := net.Listen(network, address)

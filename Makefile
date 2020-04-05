@@ -2,14 +2,16 @@ PROJECT_NAME := "fasthttp-server"
 
 .PHONY: build lint
 
-all: build
+all: build coverage lint
 
-generate:
+dep:
+	go get -v -d ./...
+
+generate: dep
 	@go get github.com/golang/mock/mockgen
-	@go get -v -d ./...
-	go generate ./...
+	@go generate ./...
 
-build:
+build: generate
 	CGO_ENABLED=0 go build -o ./bin/${PROJECT_NAME} .
 
 lint:

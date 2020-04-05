@@ -23,8 +23,6 @@ func TestStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockPipe := mocks.NewMockSimple(mockCtrl)
 	mockStreamer := mocks.NewMockStreamer(mockCtrl)
-	mockPipe.EXPECT().Write(gomock.Any()).Times(1)
-	mockStreamer.EXPECT().Stream(gomock.Any()).Times(1)
 
 	pipeNew = func() pipe.Simple {
 		return mockPipe
