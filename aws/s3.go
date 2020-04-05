@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"fasthttp-server/pipe"
 
@@ -31,9 +32,9 @@ type streamer struct {
 	running                                      sync.WaitGroup
 }
 
-func New() Streamer {
+func New(clientID int) Streamer {
 	s := &streamer{}
-	s.key = getKey()
+	s.key = getKey(clientID)
 	s.bucket = os.Getenv(awsBucket)
 	s.region = os.Getenv(awsRegion)
 	s.accessKey = os.Getenv(awsAccessKey)
@@ -71,11 +72,13 @@ func (s *streamer) Stream(reader pipe.Simple) {
 	})
 	s.running.Done()
 	if err != nil {
-		log.Fatalf("error when uploading %v", err)
+		log.Println("error when uploading", err)
+		return
 	}
 	fmt.Println("finished Streaming")
 }
 
-func getKey() string {
-	return "test"
+func getKey(clientID int) string {
+	date := time.Now().Format("2006-01-02")
+	return fmt.Sprintf("/chat/%s/content_logs_%s_%d", date, date, clientID)
 }

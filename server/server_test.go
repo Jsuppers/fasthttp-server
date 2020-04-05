@@ -2,6 +2,8 @@ package server
 
 import (
 	"bufio"
+	"fasthttp-server/aws"
+	"fasthttp-server/pipe"
 	"testing"
 	"time"
 
@@ -13,18 +15,34 @@ import (
 )
 
 //go:generate mockgen -package=mocks -destination=./../mocks/pipe_mock.go fasthttp-server/pipe Simple
+//go:generate mockgen -package=mocks -destination=./../mocks/aws_mock.go fasthttp-server/aws Streamer
 
 func TestStart(t *testing.T) {
 	StatusOK := 200
 	ln := fasthttputil.NewInmemoryListener()
 	mockCtrl := gomock.NewController(t)
 	mockPipe := mocks.NewMockSimple(mockCtrl)
+	mockStreamer := mocks.NewMockStreamer(mockCtrl)
 	mockPipe.EXPECT().Write(gomock.Any()).Times(1)
+	mockStreamer.EXPECT().Stream(gomock.Any()).Times(1)
+
+	pipeNew = func() pipe.Simple {
+		return mockPipe
+	}
+	awsNew = func(int) aws.Streamer {
+		return mockStreamer
+	}
+
+	defer func() {
+		awsNew = aws.New
+		pipeNew = pipe.New
+	}()
 
 	// Start the server with an in memory listener
 	serverCh := make(chan struct{})
+	s := New(ln)
 	go func() {
-		if err := Start(ln, mockPipe); err != nil {
+		if err := s.Start(); err != nil {
 			t.Errorf("unexpected error: %s", err)
 		}
 		close(serverCh)
