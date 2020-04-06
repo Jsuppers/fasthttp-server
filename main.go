@@ -15,21 +15,13 @@ const (
 )
 
 func main() {
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt)
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		log.Fatalf("Error creating listener: %s", err)
 	}
 
 	s := server.New(listener)
-
-	go func() {
-		sig := <-c
-		fmt.Printf("Got %s signal. closing stream...\n", sig)
-		s.Close()
-		os.Exit(0)
-	}()
+	go closeGracefully(s)
 
 	err = s.Start()
 	if err != nil {
@@ -37,4 +29,13 @@ func main() {
 	}
 
 	s.Wait()
+}
+
+func closeGracefully(s server.Server) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	sig := <-c
+	fmt.Printf("Got %s signal. closing stream...\n", sig)
+	s.Close()
+	os.Exit(0)
 }

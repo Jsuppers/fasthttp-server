@@ -25,3 +25,8 @@ coverage: generate
 	go tool cover -func=cover.out
 	goveralls -coverprofile=cover.out -service=travis-ci -repotoken ${COVERALLS_TOKEN}
 	rm cover.out
+
+coverhtml: generate
+	go test -coverprofile=cover.out ./...
+	go tool cover -html=cover.out -o coverage.html
+	rm cover.out

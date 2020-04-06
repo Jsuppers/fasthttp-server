@@ -6,7 +6,11 @@ import (
 	"io"
 )
 
-var newLineBytes = []byte("\n")
+var (
+	newLineBytes  = []byte("\n")
+	ioPipe        = io.Pipe
+	gzipNewWriter = gzip.NewWriter
+)
 
 type Simple interface {
 	Read(p []byte) (int, error)
@@ -15,8 +19,8 @@ type Simple interface {
 }
 
 func New() Simple {
-	r, w := io.Pipe()
-	gw := gzip.NewWriter(w)
+	r, w := ioPipe()
+	gw := gzipNewWriter(w)
 	return &pipe{r, w, gw}
 }
 

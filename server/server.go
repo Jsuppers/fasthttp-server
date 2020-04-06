@@ -41,6 +41,7 @@ func New(l net.Listener) Server {
 		streamers:  map[int]aws.Streamer{},
 		listener:   l,
 		httpServer: fasthttp.Server{},
+		waitGroup:  sync.WaitGroup{},
 	}
 }
 

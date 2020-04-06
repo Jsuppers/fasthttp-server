@@ -22,6 +22,8 @@ const (
 	awsAccessSecret = "AWS_ACCESS_SECRET"
 )
 
+var logFatalf = log.Fatalf
+
 type Streamer interface {
 	Stream(reader pipe.Simple)
 	Close()
@@ -42,7 +44,7 @@ func New(clientID int) Streamer {
 
 	if s.bucket == "" || s.region == "" || s.accessKey == "" || s.accessSecret == "" {
 		message := "Please ensure all environment variables are set, this includes:"
-		log.Fatalf("%s\n%s\n%s\n%s\n%s\n", message, awsBucket, awsRegion, awsAccessKey, awsAccessSecret)
+		logFatalf("%s\n%s\n%s\n%s\n%s\n", message, awsBucket, awsRegion, awsAccessKey, awsAccessSecret)
 	}
 
 	return s
