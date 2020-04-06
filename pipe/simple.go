@@ -1,9 +1,12 @@
 package pipe
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 )
+
+var newLineBytes = []byte("\n")
 
 type Simple interface {
 	Read(p []byte) (int, error)
@@ -13,21 +16,26 @@ type Simple interface {
 
 func New() Simple {
 	r, w := io.Pipe()
-	return &pipe{r, w, false}
+	gw := gzip.NewWriter(w)
+	return &pipe{r, w, gw}
 }
 
 type pipe struct {
-	r      *io.PipeReader
-	w      *io.PipeWriter
-	finish bool
+	r  *io.PipeReader
+	w  *io.PipeWriter
+	gw *gzip.Writer
 }
 
 func (p *pipe) Read(b []byte) (int, error) {
 	return p.r.Read(b)
 }
 
-func (p *pipe) Write(b []byte) (int, error) {
-	return p.w.Write(b)
+func (p *pipe) Write(b []byte) (n int, err error) {
+	n, err = p.gw.Write(b)
+	if err != nil {
+		return
+	}
+	return p.gw.Write(newLineBytes)
 }
 
 func (p *pipe) Close() {
