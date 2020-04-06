@@ -1,0 +1,7 @@
+# .travis.yml
+language: go
+go:
+  - 1.12
+script:
+  - export GOPATH=$HOME
+  - make

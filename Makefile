@@ -2,7 +2,7 @@ PROJECT_NAME := "fasthttp-server"
 
 .PHONY: build lint
 
-all: build coverage lint
+all: build lint coverage
 
 dep:
 	go get -v -d ./...
@@ -23,4 +23,5 @@ coverage: generate
 	go get github.com/mattn/goveralls
 	go test -coverprofile=cover.out ./...
 	go tool cover -func=cover.out
+	goveralls -coverprofile=cover.out -service=travis-ci -repotoken ${COVERALLS_TOKEN}
 	rm cover.out
