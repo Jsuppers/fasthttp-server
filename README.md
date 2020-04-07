@@ -8,12 +8,14 @@ fasthttp-server is a service which receives messages from fasthttp-client (https
 * compresses the message in gzip format
 * streams this data either to s3 storage or a Azure blob
 
+**IMPORTANT:** to save the file you need to close the stream by stopping the program
+
 ## Configuration
 to assign which storage to stream to set the STORAGE_TYPE environment variable e.g. to stream to azure:
 ```
 export STORAGE_TYPE="azure"
 ```
-note: if not set it will default to s3 storage
+**note:** if not set it will default to s3 storage
 ## how to run in docker
 ```
 git clone https://github.com/Jsuppers/fasthttp-server.git
@@ -29,5 +31,8 @@ docker run --rm -it -p 8080:8080 --env STORAGE_TYPE="azure" --env AZURE_STORAGE_
 ```
 
 ## performance
-* **Native go program:** 10,000 messages in approximately _550ms_ using approximately _120 MB_ memory
-* **In docker containers:** 10,000 messages in approximately _2000ms_ using approximately _100 MB_ memory
+* **Native go program:** 10,000 messages in _~550ms_ using _~120 MB_ memory
+* **In docker containers:** 10,000 messages in _~2000ms_ using _~100 MB_ memory
+
+## time taken to create this service 
+This service and fasthttp-client (https://github.com/Jsuppers/fasthttp-client) was part of a contest and toke **~25** hours to create both services

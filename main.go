@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"syscall"
 )
 
 const (
@@ -33,7 +34,9 @@ func main() {
 
 func closeGracefully(s server.Server) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGINT)
+	signal.Notify(c, syscall.SIGQUIT)
+	signal.Notify(c, syscall.SIGTERM)
 	sig := <-c
 	fmt.Printf("Got %s signal. closing stream...\n", sig)
 	s.Close()
