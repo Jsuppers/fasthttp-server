@@ -54,7 +54,7 @@ func TestNewS3Streamer(t *testing.T) {
 				os.Unsetenv(awsAccessSecret)
 			}()
 
-			if got := NewS3Streamer(0); !reflect.DeepEqual(got, test.want) {
+			if got := NewS3Streamer(0, 0, 0); !reflect.DeepEqual(got, test.want) {
 				t.Errorf("NewS3Streamer() = %v, want %v", got, test.want)
 			}
 

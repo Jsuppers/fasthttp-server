@@ -81,7 +81,7 @@ func Test_server_Start(t *testing.T) {
 			pipeNew = func() pipe.GzipWriter {
 				return mockPipe
 			}
-			s3New = func(int) storage.MessageStreamer {
+			s3New = func(int, int, int) storage.MessageStreamer {
 				return MockS3
 			}
 

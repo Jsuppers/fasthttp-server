@@ -19,7 +19,6 @@ const (
 	awsRegion       = "AWS_REGION"
 	awsAccessKey    = "AWS_ACCESS_KEY"
 	awsAccessSecret = "AWS_ACCESS_SECRET"
-	message         = "Please ensure all environment variables are set, this includes:"
 )
 
 var (
@@ -28,19 +27,29 @@ var (
 )
 
 type s3 struct {
-	bucket, region, key, accessKey, accessSecret string
-	running                                      sync.WaitGroup
+	bucket       string
+	region       string
+	key          string
+	accessKey    string
+	accessSecret string
+	partSize     int64
+	concurrency  int
+	running      sync.WaitGroup
 }
 
-func NewS3Streamer(clientID int) MessageStreamer {
+func NewS3Streamer(clientID, partSize, concurrency int) MessageStreamer {
+	fmt.Println("Creating new S3 streamer for client ", clientID)
 	s := &s3{}
 	s.key = getKey(clientID)
 	s.bucket = os.Getenv(awsBucket)
 	s.region = os.Getenv(awsRegion)
 	s.accessKey = os.Getenv(awsAccessKey)
 	s.accessSecret = os.Getenv(awsAccessSecret)
+	s.partSize = int64(partSize)
+	s.concurrency = concurrency
 
 	if s.bucket == "" || s.region == "" || s.accessKey == "" || s.accessSecret == "" {
+		message := "Cannot create s3 streamer, ensure the following environment variables are set:"
 		logFatalf("%s\n%s\n%s\n%s\n%s\n", message, awsBucket, awsRegion, awsAccessKey, awsAccessSecret)
 	}
 
@@ -55,7 +64,8 @@ func (s *s3) Stream(reader io.Reader) {
 
 	sess := session.Must(session.NewSession(awsConfig))
 	uploader := s3managerNewUploader(sess, func(u *s3manager.Uploader) {
-		u.PartSize = 5 * 1024 * 1024 // upload in 5MB chunks (this is the minimum allowed)
+		u.PartSize = s.partSize
+		u.Concurrency = s.concurrency
 		u.LeavePartsOnError = true
 	})
 

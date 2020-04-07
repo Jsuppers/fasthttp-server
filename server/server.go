@@ -7,14 +7,21 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/valyala/fasthttp"
 )
 
+const (
+	partSize    = 5 * 1024 * 1024 // minimum allowed for s3 storage
+	concurrency = 10
+)
+
 var (
-	pipeNew = pipe.NewGzipWriter
-	s3New   = storage.NewS3Streamer
+	pipeNew  = pipe.NewGzipWriter
+	s3New    = storage.NewS3Streamer
+	azureNew = storage.NewAzureStreamer
 )
 
 type Server interface {
@@ -62,10 +69,9 @@ func (s *server) requestHandler(ctx *fasthttp.RequestCtx) {
 
 	_, exists := s.dataPipes[message.ClientID]
 	if !exists {
-		fmt.Println("Creating file upload for client ", message.ClientID)
 		s.dataPipes[message.ClientID] = pipeNew()
 		go func() {
-			s.streamers[message.ClientID] = s3New(message.ClientID)
+			s.streamers[message.ClientID] = getStreamer(message.ClientID)
 			s.streamers[message.ClientID].Stream(s.dataPipes[message.ClientID])
 		}()
 	}
@@ -99,4 +105,11 @@ func (s *server) Close() {
 
 func (s *server) Wait() {
 	s.waitGroup.Wait()
+}
+
+func getStreamer(clientID int) storage.MessageStreamer {
+	if os.Getenv("STORAGE_TYPE") == "azure" {
+		return azureNew(clientID, partSize, concurrency)
+	}
+	return s3New(clientID, partSize, concurrency)
 }

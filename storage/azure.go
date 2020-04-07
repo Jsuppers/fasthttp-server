@@ -20,16 +20,21 @@ const (
 
 type azure struct {
 	blob, account, accessKey string
+	bufferSize, maxBuffers   int
 	running                  sync.WaitGroup
 }
 
-func NewAzureStreamer(clientID int) MessageStreamer {
+func NewAzureStreamer(clientID, bufferSize, maxBuffers int) MessageStreamer {
+	fmt.Println("Creating new Azure streamer for client ", clientID)
 	s := &azure{}
 	s.blob = getBlobName(clientID)
 	s.account = os.Getenv(azureAccount)
 	s.accessKey = os.Getenv(azureAccessKey)
+	s.bufferSize = bufferSize
+	s.maxBuffers = maxBuffers
 
 	if s.account == "" || s.accessKey == "" {
+		message := "Cannot create Azure streamer, ensure the following environment variables are set:"
 		logFatalf("%s\n%s\n%s\n%s\n%s\n", message, awsBucket, awsRegion, awsAccessKey, awsAccessSecret)
 	}
 
@@ -46,17 +51,20 @@ func (a *azure) Stream(reader io.Reader) {
 		fmt.Sprintf("https://%s.blob.core.windows.net/%s", a.account, a.blob))
 	containerURL := azblob.NewContainerURL(*URL, azblob.NewPipeline(credential, azblob.PipelineOptions{}))
 
-	ctx := context.Background() // This example uses a never-expiring context
+	ctx := context.Background()
 	_, err = containerURL.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
-	if err != nil {
-		log.Fatal("Error when creating container: ", err)
+	if serr, ok := err.(azblob.StorageError); ok {
+		if serr.ServiceCode() != azblob.ServiceCodeContainerAlreadyExists {
+			log.Fatal("Error when creating container: ", err)
+		}
+		fmt.Println("Container already exists, overwriting it")
 	}
 
 	a.running.Add(1)
 	blobURL := containerURL.NewBlockBlobURL(a.blob)
 	_, err = azblob.UploadStreamToBlockBlob(ctx, reader, blobURL, azblob.UploadStreamToBlockBlobOptions{
-		BufferSize: 4 * 1024 * 1024,
-		MaxBuffers: 5})
+		BufferSize: a.bufferSize,
+		MaxBuffers: a.maxBuffers})
 	a.running.Done()
 	if err != nil {
 		log.Println("Error when uploading", err)
