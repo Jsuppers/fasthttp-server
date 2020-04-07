@@ -27,3 +27,7 @@ docker run --rm -it -p 8080:8080 --env AWS_BUCKET="bucket" --env AWS_REGION="reg
 ```
 docker run --rm -it -p 8080:8080 --env STORAGE_TYPE="azure" --env AZURE_STORAGE_ACCOUNT="account" --env AZURE_STORAGE_ACCESS_KEY="key" fasthttp-server
 ```
+
+## performance
+* **Native go program:** 10,000 messages in approximately _550ms_ using approximately _120 MB_ memory
+* **In docker containers:** 10,000 messages in approximately _2000ms_ using approximately _100 MB_ memory
