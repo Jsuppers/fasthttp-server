@@ -4,6 +4,9 @@ PROJECT_NAME := "fasthttp-server"
 
 all: build lint coverage
 
+format:
+	gofmt -s -w .
+
 dep:
 	go get -v -d ./...
 

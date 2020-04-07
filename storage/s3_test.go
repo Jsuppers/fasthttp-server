@@ -65,7 +65,7 @@ func TestNewS3Streamer(t *testing.T) {
 	}
 }
 
-func Test_server_Wait(t *testing.T) {
+func Test_s3_Wait(t *testing.T) {
 	s := &s3{}
 	s.running.Add(1)
 	go s.running.Done()

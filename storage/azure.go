@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-pipeline-go/pipeline"
+
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
@@ -18,10 +20,25 @@ const (
 	azureAccessKey = "AZURE_STORAGE_ACCESS_KEY"
 )
 
+var (
+	azblobUploadStreamToBlockBlob = azblob.UploadStreamToBlockBlob
+	azblobNewSharedKeyCredential  = azblob.NewSharedKeyCredential
+	azblobNewContainerURL         = NewContainerURL
+)
+
 type azure struct {
 	blob, account, accessKey string
 	bufferSize, maxBuffers   int
 	running                  sync.WaitGroup
+}
+
+type ContainerURL interface {
+	Create(ctx context.Context, metadata azblob.Metadata, publicAccessType azblob.PublicAccessType) (*azblob.ContainerCreateResponse, error)
+	NewBlockBlobURL(blobName string) azblob.BlockBlobURL
+}
+
+func NewContainerURL(u *url.URL, p pipeline.Pipeline) ContainerURL {
+	return azblob.NewContainerURL(*u, p)
 }
 
 func NewAzureStreamer(clientID, bufferSize, maxBuffers int) MessageStreamer {
@@ -35,34 +52,33 @@ func NewAzureStreamer(clientID, bufferSize, maxBuffers int) MessageStreamer {
 
 	if s.account == "" || s.accessKey == "" {
 		message := "Cannot create Azure streamer, ensure the following environment variables are set:"
-		logFatalf("%s\n%s\n%s\n%s\n%s\n", message, awsBucket, awsRegion, awsAccessKey, awsAccessSecret)
+		logFatalf("%s\n%s\n%s\n", message, azureAccount, azureAccessKey)
 	}
 
 	return s
 }
 
 func (a *azure) Stream(reader io.Reader) {
-	credential, err := azblob.NewSharedKeyCredential(a.account, a.accessKey)
+	credential, err := azblobNewSharedKeyCredential(a.account, a.accessKey)
 	if err != nil {
-		log.Fatal("Invalid credentials with error: ", err)
+		logFatalf("Invalid credentials with error: ", err)
 	}
 
 	URL, _ := url.Parse(
 		fmt.Sprintf("https://%s.blob.core.windows.net/%s", a.account, a.blob))
-	containerURL := azblob.NewContainerURL(*URL, azblob.NewPipeline(credential, azblob.PipelineOptions{}))
+	containerURL := azblobNewContainerURL(URL, azblob.NewPipeline(credential, azblob.PipelineOptions{}))
 
 	ctx := context.Background()
 	_, err = containerURL.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
-	if serr, ok := err.(azblob.StorageError); ok {
-		if serr.ServiceCode() != azblob.ServiceCodeContainerAlreadyExists {
-			log.Fatal("Error when creating container: ", err)
+	if err != nil {
+		if serr, ok := err.(azblob.StorageError); ok && serr.ServiceCode() != azblob.ServiceCodeContainerAlreadyExists {
+			logFatalf("Error when creating container: ", err)
 		}
-		fmt.Println("Container already exists, overwriting it")
 	}
 
 	a.running.Add(1)
 	blobURL := containerURL.NewBlockBlobURL(a.blob)
-	_, err = azblob.UploadStreamToBlockBlob(ctx, reader, blobURL, azblob.UploadStreamToBlockBlobOptions{
+	_, err = azblobUploadStreamToBlockBlob(ctx, reader, blobURL, azblob.UploadStreamToBlockBlobOptions{
 		BufferSize: a.bufferSize,
 		MaxBuffers: a.maxBuffers})
 	a.running.Done()
