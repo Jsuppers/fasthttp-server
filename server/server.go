@@ -94,7 +94,7 @@ func (s *server) Close() {
 		dp.Close()
 	}
 
-	fmt.Println("Closing s3 streamers")
+	fmt.Println("Closing streamers")
 	for _, stream := range s.streamers {
 		stream.Wait()
 	}

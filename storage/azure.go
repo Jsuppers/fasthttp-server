@@ -65,7 +65,7 @@ func (a *azure) Stream(reader io.Reader) {
 	}
 
 	URL, _ := url.Parse(
-		fmt.Sprintf("https://%s.blob.core.windows.net/%s", a.account, a.blob))
+		fmt.Sprintf("https://%s.blob.core.windows.net/%s", a.account, getContainerName()))
 	containerURL := azblobNewContainerURL(URL, azblob.NewPipeline(credential, azblob.PipelineOptions{}))
 
 	ctx := context.Background()
@@ -85,6 +85,10 @@ func (a *azure) Stream(reader io.Reader) {
 	if err != nil {
 		log.Println("Error when uploading", err)
 	}
+}
+
+func getContainerName() string {
+	return time.Now().Format("2006-01-02")
 }
 
 func getBlobName(clientID int) string {
