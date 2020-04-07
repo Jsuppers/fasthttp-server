@@ -2,8 +2,8 @@ package server
 
 import (
 	"encoding/json"
-	"fasthttp-server/aws"
 	"fasthttp-server/pipe"
+	"fasthttp-server/storage"
 	"fmt"
 	"log"
 	"net"
@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	pipeNew = pipe.New
-	awsNew  = aws.New
+	pipeNew = pipe.NewGzipWriter
+	awsNew  = storage.NewS3Streamer
 )
 
 type Server interface {
@@ -26,8 +26,8 @@ type Server interface {
 type server struct {
 	httpServer fasthttp.Server
 	listener   net.Listener
-	dataPipes  map[int]pipe.Simple
-	streamers  map[int]aws.Streamer
+	dataPipes  map[int]pipe.GzipWriter
+	streamers  map[int]storage.S3
 	waitGroup  sync.WaitGroup
 }
 
@@ -37,8 +37,8 @@ type Request struct {
 
 func New(l net.Listener) Server {
 	return &server{
-		dataPipes:  map[int]pipe.Simple{},
-		streamers:  map[int]aws.Streamer{},
+		dataPipes:  map[int]pipe.GzipWriter{},
+		streamers:  map[int]storage.S3{},
 		listener:   l,
 		httpServer: fasthttp.Server{},
 		waitGroup:  sync.WaitGroup{},
@@ -90,7 +90,7 @@ func (s *server) Close() {
 
 	fmt.Println("Closing s3 streamers")
 	for _, stream := range s.streamers {
-		stream.Close()
+		stream.Wait()
 	}
 
 	fmt.Println("Closed all streamers")

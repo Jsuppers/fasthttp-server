@@ -6,21 +6,17 @@ import (
 	"io"
 )
 
-var (
-	newLineBytes  = []byte("\n")
-	ioPipe        = io.Pipe
-	gzipNewWriter = gzip.NewWriter
-)
+var newLineBytes = []byte("\n")
 
-type Simple interface {
+type GzipWriter interface {
 	Read(p []byte) (int, error)
 	Write(p []byte) (int, error)
 	Close()
 }
 
-func New() Simple {
-	r, w := ioPipe()
-	gw := gzipNewWriter(w)
+func NewGzipWriter() GzipWriter {
+	r, w := io.Pipe()
+	gw := gzip.NewWriter(w)
 	return &pipe{r, w, gw}
 }
 
@@ -43,7 +39,10 @@ func (p *pipe) Write(b []byte) (n int, err error) {
 }
 
 func (p *pipe) Close() {
+	if err := p.gw.Close(); err != nil {
+		fmt.Println("Got error when closing gzip writer stream ", err)
+	}
 	if err := p.w.Close(); err != nil {
-		fmt.Println("Got error when closing stream ", err)
+		fmt.Println("Got error when closing writer stream ", err)
 	}
 }

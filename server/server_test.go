@@ -2,8 +2,8 @@ package server
 
 import (
 	"bufio"
-	"fasthttp-server/aws"
 	"fasthttp-server/pipe"
+	"fasthttp-server/storage"
 	"fmt"
 	"reflect"
 	"testing"
@@ -16,8 +16,8 @@ import (
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 
-//go:generate mockgen -package=mocks -destination=./../mocks/pipe_mock.go fasthttp-server/pipe Simple
-//go:generate mockgen -package=mocks -destination=./../mocks/aws_mock.go fasthttp-server/aws Streamer
+//go:generate mockgen -package=mocks -destination=./../mocks/pipe_mock.go fasthttp-server/pipe GzipWriter
+//go:generate mockgen -package=mocks -destination=./../mocks/aws_mock.go fasthttp-server/storage S3
 //go:generate mockgen -package=mocks -destination=./../mocks/net_mock.go net Listener
 
 func TestNew(t *testing.T) {
@@ -33,13 +33,13 @@ func TestNew(t *testing.T) {
 			mockListener := mocks.NewMockListener(mockCtrl)
 
 			want := &server{
-				dataPipes: map[int]pipe.Simple{},
-				streamers: map[int]aws.Streamer{},
+				dataPipes: map[int]pipe.GzipWriter{},
+				streamers: map[int]storage.S3{},
 				listener:  mockListener,
 			}
 
 			if got := New(mockListener); !reflect.DeepEqual(got, want) {
-				t.Errorf("New() = %v, want %v", got, want)
+				t.Errorf("NewGzipWriter() = %v, want %v", got, want)
 			}
 
 			mockCtrl.Finish()
@@ -51,22 +51,22 @@ func Test_server_Start(t *testing.T) {
 	tests := []struct {
 		name    string
 		request string
-		setup   func(mockPipe *mocks.MockSimple, mockStreamer *mocks.MockStreamer)
+		setup   func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3)
 	}{
 		{"error parsing request", fmt.Sprintf("POST / HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 1, "{"),
-			func(mockPipe *mocks.MockSimple, mockStreamer *mocks.MockStreamer) {
+			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3) {
 				mockPipe.EXPECT().Write(gomock.Any()).Times(0)
-				mockStreamer.EXPECT().Stream(gomock.Any()).Times(0)
+				MockS3.EXPECT().Stream(gomock.Any()).Times(0)
 			}},
 		{"error writing to pipe", fmt.Sprintf("POST / HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 2, "{}"),
-			func(mockPipe *mocks.MockSimple, mockStreamer *mocks.MockStreamer) {
+			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3) {
 				mockPipe.EXPECT().Write(gomock.Any()).Times(1).Return(0, fmt.Errorf("error"))
-				mockStreamer.EXPECT().Stream(gomock.Any()).Times(1)
+				MockS3.EXPECT().Stream(gomock.Any()).Times(1)
 			}},
 		{"success", fmt.Sprintf("POST / HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 2, "{}"),
-			func(mockPipe *mocks.MockSimple, mockStreamer *mocks.MockStreamer) {
+			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3) {
 				mockPipe.EXPECT().Write(gomock.Any()).Times(1)
-				mockStreamer.EXPECT().Stream(gomock.Any()).Times(1)
+				MockS3.EXPECT().Stream(gomock.Any()).Times(1)
 			}},
 	}
 	for _, tt := range tests {
@@ -74,25 +74,25 @@ func Test_server_Start(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ln := fasthttputil.NewInmemoryListener()
 			mockCtrl := gomock.NewController(t)
-			mockPipe := mocks.NewMockSimple(mockCtrl)
-			mockStreamer := mocks.NewMockStreamer(mockCtrl)
-			test.setup(mockPipe, mockStreamer)
+			mockPipe := mocks.NewMockGzipWriter(mockCtrl)
+			MockS3 := mocks.NewMockS3(mockCtrl)
+			test.setup(mockPipe, MockS3)
 
-			pipeNew = func() pipe.Simple {
+			pipeNew = func() pipe.GzipWriter {
 				return mockPipe
 			}
-			awsNew = func(int) aws.Streamer {
-				return mockStreamer
+			awsNew = func(int) storage.S3 {
+				return MockS3
 			}
 
 			defer func() {
-				awsNew = aws.New
-				pipeNew = pipe.New
+				awsNew = storage.NewS3Streamer
+				pipeNew = pipe.NewGzipWriter
 			}()
 
 			s := &server{
-				dataPipes: map[int]pipe.Simple{},
-				streamers: map[int]aws.Streamer{},
+				dataPipes: map[int]pipe.GzipWriter{},
+				streamers: map[int]storage.S3{},
 				listener:  ln,
 			}
 
@@ -151,16 +151,16 @@ func Test_server_Close(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
-			mockPipe := mocks.NewMockSimple(mockCtrl)
-			mockStreamer := mocks.NewMockStreamer(mockCtrl)
+			mockPipe := mocks.NewMockGzipWriter(mockCtrl)
+			MockS3 := mocks.NewMockS3(mockCtrl)
 
-			dataPipes := map[int]pipe.Simple{}
+			dataPipes := map[int]pipe.GzipWriter{}
 			dataPipes[0] = mockPipe
 			mockPipe.EXPECT().Close().Times(1)
 
-			streamers := map[int]aws.Streamer{}
-			streamers[0] = mockStreamer
-			mockStreamer.EXPECT().Close().Times(1)
+			streamers := map[int]storage.S3{}
+			streamers[0] = MockS3
+			MockS3.EXPECT().Wait().Times(1)
 
 			s := &server{
 				dataPipes: dataPipes,
