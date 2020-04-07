@@ -19,6 +19,7 @@ const (
 	awsRegion       = "AWS_REGION"
 	awsAccessKey    = "AWS_ACCESS_KEY"
 	awsAccessSecret = "AWS_ACCESS_SECRET"
+	message         = "Please ensure all environment variables are set, this includes:"
 )
 
 var (
@@ -26,17 +27,12 @@ var (
 	s3managerNewUploader = s3manager.NewUploader
 )
 
-type S3 interface {
-	Stream(reader io.Reader)
-	Wait()
-}
-
 type s3 struct {
 	bucket, region, key, accessKey, accessSecret string
 	running                                      sync.WaitGroup
 }
 
-func NewS3Streamer(clientID int) S3 {
+func NewS3Streamer(clientID int) MessageStreamer {
 	s := &s3{}
 	s.key = getKey(clientID)
 	s.bucket = os.Getenv(awsBucket)
@@ -45,7 +41,6 @@ func NewS3Streamer(clientID int) S3 {
 	s.accessSecret = os.Getenv(awsAccessSecret)
 
 	if s.bucket == "" || s.region == "" || s.accessKey == "" || s.accessSecret == "" {
-		message := "Please ensure all environment variables are set, this includes:"
 		logFatalf("%s\n%s\n%s\n%s\n%s\n", message, awsBucket, awsRegion, awsAccessKey, awsAccessSecret)
 	}
 
@@ -72,18 +67,17 @@ func (s *s3) Stream(reader io.Reader) {
 	})
 	s.running.Done()
 	if err != nil {
-		log.Println("error when uploading", err)
-		return
+		log.Println("Error when uploading", err)
 	}
-}
-
-func getKey(clientID int) string {
-	date := time.Now().Format("2006-01-02")
-	return fmt.Sprintf("/chat/%s/content_logs_%s_%d", date, date, clientID)
 }
 
 func (s *s3) Wait() {
 	fmt.Println("Waiting for streaming to end for ", s.key)
 	s.running.Wait()
 	fmt.Println("Finished Streaming to ", s.key)
+}
+
+func getKey(clientID int) string {
+	date := time.Now().Format("2006-01-02")
+	return fmt.Sprintf("/chat/%s/content_logs_%s_%d", date, date, clientID)
 }

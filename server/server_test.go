@@ -17,7 +17,7 @@ import (
 )
 
 //go:generate mockgen -package=mocks -destination=./../mocks/pipe_mock.go fasthttp-server/pipe GzipWriter
-//go:generate mockgen -package=mocks -destination=./../mocks/aws_mock.go fasthttp-server/storage S3
+//go:generate mockgen -package=mocks -destination=./../mocks/aws_mock.go fasthttp-server/storage MessageStreamer
 //go:generate mockgen -package=mocks -destination=./../mocks/net_mock.go net Listener
 
 func TestNew(t *testing.T) {
@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 
 			want := &server{
 				dataPipes: map[int]pipe.GzipWriter{},
-				streamers: map[int]storage.S3{},
+				streamers: map[int]storage.MessageStreamer{},
 				listener:  mockListener,
 			}
 
@@ -51,20 +51,20 @@ func Test_server_Start(t *testing.T) {
 	tests := []struct {
 		name    string
 		request string
-		setup   func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3)
+		setup   func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockMessageStreamer)
 	}{
 		{"error parsing request", fmt.Sprintf("POST / HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 1, "{"),
-			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3) {
+			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockMessageStreamer) {
 				mockPipe.EXPECT().Write(gomock.Any()).Times(0)
 				MockS3.EXPECT().Stream(gomock.Any()).Times(0)
 			}},
 		{"error writing to pipe", fmt.Sprintf("POST / HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 2, "{}"),
-			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3) {
+			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockMessageStreamer) {
 				mockPipe.EXPECT().Write(gomock.Any()).Times(1).Return(0, fmt.Errorf("error"))
 				MockS3.EXPECT().Stream(gomock.Any()).Times(1)
 			}},
 		{"success", fmt.Sprintf("POST / HTTP/1.1\r\nContent-Length: %d\r\n\r\n%s", 2, "{}"),
-			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockS3) {
+			func(mockPipe *mocks.MockGzipWriter, MockS3 *mocks.MockMessageStreamer) {
 				mockPipe.EXPECT().Write(gomock.Any()).Times(1)
 				MockS3.EXPECT().Stream(gomock.Any()).Times(1)
 			}},
@@ -75,24 +75,24 @@ func Test_server_Start(t *testing.T) {
 			ln := fasthttputil.NewInmemoryListener()
 			mockCtrl := gomock.NewController(t)
 			mockPipe := mocks.NewMockGzipWriter(mockCtrl)
-			MockS3 := mocks.NewMockS3(mockCtrl)
+			MockS3 := mocks.NewMockMessageStreamer(mockCtrl)
 			test.setup(mockPipe, MockS3)
 
 			pipeNew = func() pipe.GzipWriter {
 				return mockPipe
 			}
-			awsNew = func(int) storage.S3 {
+			s3New = func(int) storage.MessageStreamer {
 				return MockS3
 			}
 
 			defer func() {
-				awsNew = storage.NewS3Streamer
+				s3New = storage.NewS3Streamer
 				pipeNew = pipe.NewGzipWriter
 			}()
 
 			s := &server{
 				dataPipes: map[int]pipe.GzipWriter{},
-				streamers: map[int]storage.S3{},
+				streamers: map[int]storage.MessageStreamer{},
 				listener:  ln,
 			}
 
@@ -152,13 +152,13 @@ func Test_server_Close(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			mockPipe := mocks.NewMockGzipWriter(mockCtrl)
-			MockS3 := mocks.NewMockS3(mockCtrl)
+			MockS3 := mocks.NewMockMessageStreamer(mockCtrl)
 
 			dataPipes := map[int]pipe.GzipWriter{}
 			dataPipes[0] = mockPipe
 			mockPipe.EXPECT().Close().Times(1)
 
-			streamers := map[int]storage.S3{}
+			streamers := map[int]storage.MessageStreamer{}
 			streamers[0] = MockS3
 			MockS3.EXPECT().Wait().Times(1)
 
