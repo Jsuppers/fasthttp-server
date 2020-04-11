@@ -31,7 +31,7 @@ docker run --rm -it -p 8080:8080 --env STORAGE_TYPE="azure" --env AZURE_STORAGE_
 ```
 
 ## performance
-10,000 messages in _~550ms_ using _~120 MB_ memory
+10,000 messages in _~520ms_ using _~120 MB_ memory
 
 ## time taken to create this service 
 This service and fasthttp-client (https://github.com/Jsuppers/fasthttp-client) was part of a contest and toke **~25** hours to create both services
