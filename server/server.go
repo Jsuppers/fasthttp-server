@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fasthttp-server/pipe"
 	"fasthttp-server/storage"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"os"
 	"sync"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/valyala/fasthttp"
 )
 
@@ -19,6 +19,8 @@ const (
 )
 
 var (
+	// A high-performance 100% compatible drop-in replacement of "encoding/json"
+	json     = jsoniter.ConfigCompatibleWithStandardLibrary
 	pipeNew  = pipe.NewGzipWriter
 	s3New    = storage.NewS3Streamer
 	azureNew = storage.NewAzureStreamer
